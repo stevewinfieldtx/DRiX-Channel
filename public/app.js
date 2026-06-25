@@ -29,6 +29,26 @@
   cityInput.addEventListener("input", function () { state.city = cityInput.value.trim(); });
   urlInput.addEventListener("keydown", function (e) { if (e.key === "Enter" && !identifyBtn.disabled) identify(); });
 
+  // Network helper: POST JSON and, on a DROPPED connection (not a server error),
+  // quietly retry. Helps long requests survive a flaky/long-distance link.
+  function postJSON(url, body, tries) {
+    tries = tries || 1;
+    function attempt(n) {
+      return fetch(url, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .catch(function (err) {
+          if (n < tries) {
+            return new Promise(function (res) { setTimeout(res, 900); }).then(function () { return attempt(n + 1); });
+          }
+          throw err;
+        });
+    }
+    return attempt(1);
+  }
+
   identifyBtn.addEventListener("click", identify);
 
   function identify() {
@@ -91,17 +111,13 @@
     $("analyzeBtn").disabled = true;
     setLoading(true, ["Qualifying the basics…", "Reading where they bleed…", "Building the ten…", "Ranking by impact…"]);
 
-    fetch("/api/analyze", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: state.url, profile: profile })
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    postJSON("/api/analyze", { url: state.url, profile: profile }, 3)
       .then(function (res) {
         setLoading(false); $("analyzeBtn").disabled = false;
         if (!res.ok) { showError(res.j.error || "Analysis failed."); return; }
         renderResults(profile, res.j);
       })
-      .catch(function () { setLoading(false); $("analyzeBtn").disabled = false; showError("Network error during analysis."); });
+      .catch(function () { setLoading(false); $("analyzeBtn").disabled = false; showError("Network error during analysis. Check your connection and run it again."); });
   }
 
   // 3x3 matrix: impact (High/Medium/Low) x effort (Quick/Moderate/Heavy) = 9 cells, 9 colors.
