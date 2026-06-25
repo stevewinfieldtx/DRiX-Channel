@@ -104,43 +104,12 @@
       .catch(function () { setLoading(false); $("analyzeBtn").disabled = false; showError("Network error during analysis."); });
   }
 
-  function quadrant(impact, effort) {
-    var hi = String(impact || "").toLowerCase() === "high";
-    var heavy = String(effort || "").toLowerCase() === "heavy";
-    // "low effort" = Quick or Moderate; "high effort" = Heavy
-    if (hi && !heavy) return { cls: "q-green", label: "Do it now" };
-    if (hi && heavy) return { cls: "q-yellow", label: "Worth the lift" };
-    if (!hi && !heavy) return { cls: "q-orange", label: "Cheap, marginal" };
-    return { cls: "q-red", label: "Avoid" };
-  }
-
   function esc(s) { var d = document.createElement("div"); d.textContent = (s == null ? "" : String(s)); return d.innerHTML; }
-
-  function money(n) {
-    n = Number(n) || 0;
-    if (n >= 1000) { var k = n / 1000; return "$" + (k % 1 === 0 ? k : k.toFixed(1)) + "K"; }
-    return "$" + n;
-  }
-  function priceBlock(pr) {
-    if (!pr) return "";
-    var total = money(pr.low) + " – " + money(pr.high);
-    var mo = "$" + (Number(pr.monthlyLow) || 0).toLocaleString() + " – $" + (Number(pr.monthlyHigh) || 0).toLocaleString() + " /mo";
-    var isMarket = pr.basis === "market";
-    var refs = (pr.refs && pr.refs.length) ? '<span class="refs">[' + pr.refs.join(",") + ']</span>' : "";
-    var label = isMarket ? "Market-based" : "Scope-based";
-    var note = pr.note ? '<div class="pnote">' + esc(pr.note) + '</div>' : "";
-    return '<div class="price">'
-      + '<div class="amt">' + total + '</div>'
-      + '<div class="mo">' + mo + ' · setup = one month</div>'
-      + '<span class="basis ' + (isMarket ? "market" : "effort") + '">' + label + ' indicative' + refs + '</span>'
-      + note
-      + '</div>';
-  }
 
   function renderResults(profile, out) {
     $("resName").textContent = profile.name || state.url;
     $("resVert").textContent = (profile.vertical || "") + (profile.location ? "  ·  " + profile.location : "");
-    $("lockTitle").textContent = "AI gets built around " + (profile.name || "them") + ".";
+    $("lockTitle").textContent = "Where " + (profile.name || "they") + " gets built around them.";
 
     var B = $("basics"); B.innerHTML = "";
     (out.basics || []).forEach(function (b) {
@@ -157,8 +126,7 @@
     (out.advanced || []).slice(0, 10).forEach(function (idea, idx) {
       var impact = (idea.impact || "").toLowerCase() === "high" ? "impact-high" : "";
       var ef = (idea.effort || "").toLowerCase(); var ec = ef === "quick" ? "effort-quick" : (ef === "heavy" ? "effort-heavy" : "");
-      var q = quadrant(idea.impact, idea.effort);
-      var card = document.createElement("article"); card.className = "card " + q.cls;
+      var card = document.createElement("article"); card.className = "card";
       card.innerHTML = '<div class="rank">' + ("0" + (idx + 1)).slice(-2) + ' / 10</div>'
         + '<h4>' + esc(idea.title) + '</h4>'
         + '<p class="problem">' + esc(idea.problem) + '</p>'
@@ -167,28 +135,9 @@
         + (idea.pain ? '<span class="tag pain">' + esc(idea.pain) + '</span>' : '')
         + '<span class="tag ' + impact + '">Impact · ' + esc(idea.impact || "—") + '</span>'
         + '<span class="tag ' + ec + '">Effort · ' + esc(idea.effort || "—") + '</span>'
-        + '</div>'
-        + '<div class="quad">' + q.label + '</div>'
-        + priceBlock(idea.price);
+        + '</div>';
       A.appendChild(card);
     });
-
-    var apx = $("priceAppendix");
-    var srcs = out.priceSources || [];
-    var anyMarket = (out.advanced || []).some(function (x) { return x.price && x.price.basis === "market"; });
-    var html = "";
-    if (srcs.length) {
-      html += "<h4>Pricing references</h4><ol>";
-      srcs.forEach(function (sref) {
-        html += '<li value="' + Number(sref.n) + '"><a href="' + esc(sref.url) + '" target="_blank" rel="noopener">' + esc(sref.title) + '</a></li>';
-      });
-      html += "</ol>";
-    } else {
-      html += "<h4>Pricing references</h4>";
-    }
-    html += '<div class="disclaimer">All figures are indicative budgeting ranges, not quotes. Market-based ranges cite live comparables above. Scope-based ranges fall back to internal effort bands and carry no market citation. A firm price is set only after scoping the customer\'s actual environment.</div>';
-    apx.innerHTML = html;
-    apx.style.display = "block";
 
     $("inputView").style.display = "none";
     $("resultsView").classList.add("show");

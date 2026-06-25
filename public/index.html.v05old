@@ -111,22 +111,6 @@
   .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
   @media(max-width:720px){.grid{grid-template-columns:1fr;}}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 22px 18px;transition:border-color .18s ease,transform .18s ease;display:flex;flex-direction:column;}
-  /* impact x effort quadrant — colored left edge of each Advanced card */
-  /* FULL bright outline by impact x effort quadrant */
-  .card{border-width:2px;}
-  .card.q-green{border-color:#22E06B;box-shadow:0 0 16px rgba(34,224,107,0.30);}   /* high impact / low effort  — do it now */
-  .card.q-yellow{border-color:#FFE03A;box-shadow:0 0 16px rgba(255,224,58,0.28);}  /* high impact / high effort — worth the lift */
-  .card.q-orange{border-color:#FF9F2E;box-shadow:0 0 16px rgba(255,159,46,0.28);}  /* low impact / low effort   — cheap, marginal */
-  .card.q-red{border-color:#FF4D45;box-shadow:0 0 16px rgba(255,77,69,0.28);}      /* low impact / high effort  — avoid */
-  .card.q-green:hover{border-color:#22E06B;box-shadow:0 0 24px rgba(34,224,107,0.5);}
-  .card.q-yellow:hover{border-color:#FFE03A;box-shadow:0 0 24px rgba(255,224,58,0.46);}
-  .card.q-orange:hover{border-color:#FF9F2E;box-shadow:0 0 24px rgba(255,159,46,0.46);}
-  .card.q-red:hover{border-color:#FF4D45;box-shadow:0 0 24px rgba(255,77,69,0.46);}
-  .card .quad{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-top:14px;}
-  .card.q-green .quad{color:#22E06B;}
-  .card.q-yellow .quad{color:#FFE03A;}
-  .card.q-orange .quad{color:#FF9F2E;}
-  .card.q-red .quad{color:#FF4D45;}
   .card:hover{border-color:var(--cyan-dim);transform:translateY(-2px);}
   .card .rank{font-family:var(--mono);font-size:12px;color:var(--cyan-dim);letter-spacing:.1em;}
   .card h4{font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.08;margin:8px 0 12px;}
@@ -138,21 +122,6 @@
   .tag.effort-quick{color:var(--green);border-color:rgba(143,227,168,0.3);}
   .tag.effort-heavy{color:var(--amber);border-color:rgba(242,176,94,0.3);}
   .tag.pain{color:var(--muted);}
-  .price{margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft);}
-  .price .amt{font-family:var(--serif);font-size:23px;color:var(--text);line-height:1;}
-  .price .mo{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.03em;margin-top:6px;}
-  .price .basis{display:inline-flex;align-items:center;gap:6px;margin-top:9px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:5px;}
-  .price .basis.market{color:var(--cyan);border:1px solid rgba(46,230,246,0.3);}
-  .price .basis.effort{color:var(--amber);border:1px solid rgba(242,176,94,0.3);}
-  .price .refs{font-family:var(--mono);font-size:10px;color:var(--cyan-dim);margin-left:4px;}
-  .price .pnote{font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-top:7px;line-height:1.4;}
-  .appendix{margin-top:34px;border-top:1px solid var(--line);padding-top:20px;}
-  .appendix h4{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted-2);margin:0 0 14px;}
-  .appendix ol{margin:0;padding-left:22px;}
-  .appendix li{font-family:var(--mono);font-size:11.5px;color:var(--muted);line-height:1.7;margin-bottom:6px;}
-  .appendix li a{color:var(--cyan-dim);text-decoration:none;word-break:break-all;}
-  .appendix li a:hover{color:var(--cyan);text-decoration:underline;}
-  .appendix .disclaimer{font-family:var(--mono);font-size:10.5px;color:var(--muted-2);letter-spacing:.03em;line-height:1.6;margin-top:14px;}
 
   .locked{position:relative;border:1px solid var(--line);border-radius:16px;padding:30px 28px;background:repeating-linear-gradient(135deg, rgba(46,230,246,0.018) 0 14px, transparent 14px 28px), var(--bg-2);}
   .locked .lockbadge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(242,176,94,0.3);border-radius:7px;padding:5px 10px;}
@@ -179,7 +148,7 @@
       <div class="gridmark" aria-hidden="true"><span></span><span></span><span></span><span></span><span class="lit"></span><span></span><span></span><span></span><span></span></div>
       <div class="eyebrow">DRiX Channel <b>·</b> Engine</div>
     </div>
-    <div class="by">v0.9 · Railway</div>
+    <div class="by">v0.5 · Railway</div>
   </div>
 
   <!-- INPUT -->
@@ -247,7 +216,6 @@
       <div class="layer-head"><span class="lnum">02</span><h3>Advanced Solutions</h3></div>
       <p class="layer-sub">Ten builds scoped to them · ranked by impact</p>
       <div class="grid" id="advanced"></div>
-      <div class="appendix" id="priceAppendix" style="display:none;"></div>
     </div>
 
     <div class="layer">
