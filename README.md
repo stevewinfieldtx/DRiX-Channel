@@ -57,4 +57,16 @@ live in `lib/basics.js`.
   little text; the confirm screen lets you correct the vertical and add context by hand.
 - Partner attribution table exists (`partners`) and the seam supports it, but there's no
   partner UI yet — wire it when the rev-share flow is real.
-# DRiX-Channel
+
+## Indicative pricing layer (v0.7)
+
+Each Advanced solution now carries an indicative price range.
+
+- **Market-based:** a web-search step (OpenRouter `web` plugin, using your `OPENROUTER_MODEL_ID`) finds 2026 North American SMB comparables for that solution type and effort, and the card cites the real sources. Sources collect into a **Pricing references** appendix at the bottom of the report.
+- **Scope-based fallback:** if the search returns nothing usable, the card falls back to the effort band in `lib/basics.js` (`EFFORT_BANDS`) and is plainly labeled "Scope-based," with no market citation.
+- **Math:** range shown is total one-year contract value. Monthly = total / 12. Setup = one month.
+- **Honesty:** every figure is indicative for budgeting only. A firm number is set after scoping the customer's real environment, outside the engine.
+
+Recalibrate the three `EFFORT_BANDS` against real closes. They are rough anchors, not gospel.
+
+Note: the `web` plugin requires the configured model/account to support OpenRouter web search. If it does not, pricing degrades gracefully to scope-based bands.

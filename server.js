@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import * as store from "./db/index.js";
 import { fetchSiteText, normalizeUrl, domainOf } from "./lib/siteReader.js";
-import { identifyCompany, analyzeCompany } from "./lib/llm.js";
+import { identifyCompany, analyzeCompany, priceSolutions } from "./lib/llm.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -121,6 +121,22 @@ app.post("/api/analyze", async (req, res) => {
   } catch (err) {
     console.error("analyze error:", err);
     return res.status(500).json({ error: err.message || "Analysis failed." });
+  }
+});
+
+// ---- STEP 3: price ----
+// Ten focused agents, one per solution, run in parallel. Decoupled from analyze
+// so the report renders immediately and prices stream in afterward.
+app.post("/api/price", async (req, res) => {
+  try {
+    const profile = req.body?.profile || {};
+    const solutions = Array.isArray(req.body?.solutions) ? req.body.solutions : [];
+    if (!solutions.length) return res.status(400).json({ error: "No solutions to price." });
+    const { priced, sources } = await priceSolutions({ solutions, profile });
+    return res.json({ priced, sources });
+  } catch (err) {
+    console.error("price error:", err);
+    return res.status(500).json({ error: err.message || "Pricing failed." });
   }
 });
 

@@ -164,6 +164,46 @@
       + '</div>';
   }
 
+  function loadPricing(profile, advanced) {
+    fetch("/api/price", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: profile, solutions: advanced })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) { pricingFailed(advanced); return; }
+        var priced = res.j.priced || [];
+        advanced.forEach(function (idea, idx) {
+          var slot = document.getElementById("price-" + idx);
+          if (slot) slot.innerHTML = priceBlock(priced[idx]);
+        });
+        renderAppendix(res.j.sources || []);
+      })
+      .catch(function () { pricingFailed(advanced); });
+  }
+
+  function pricingFailed(advanced) {
+    advanced.forEach(function (_, idx) {
+      var slot = document.getElementById("price-" + idx);
+      if (slot) slot.innerHTML = '<div class="price"><div class="mo" style="color:var(--muted-2)">Pricing unavailable \u2014 rerun to retry</div></div>';
+    });
+  }
+
+  function renderAppendix(srcs) {
+    var apx = $("priceAppendix");
+    var html = "<h4>Pricing references</h4>";
+    if (srcs.length) {
+      html += "<ol>";
+      srcs.forEach(function (sref) {
+        html += '<li value="' + Number(sref.n) + '"><a href="' + esc(sref.url) + '" target="_blank" rel="noopener">' + esc(sref.title) + '</a></li>';
+      });
+      html += "</ol>";
+    }
+    html += '<div class="disclaimer">All figures are indicative budgeting ranges, not quotes. Market-based ranges cite the live comparables above. Scope-based ranges are reasoned from each solution\'s own scope and carry no market citation. A firm price is set only after scoping the customer\'s actual environment.</div>';
+    apx.innerHTML = html;
+    apx.style.display = "block";
+  }
+
   function renderResults(profile, out) {
     $("resName").textContent = profile.name || state.url;
     $("resVert").textContent = (profile.vertical || "") + (profile.location ? "  ·  " + profile.location : "");
@@ -202,26 +242,11 @@
         + '<span class="tag ' + ec + '">Effort · ' + esc(idea.effort || "—") + '</span>'
         + '</div>'
         + '<div class="quad" style="color:' + c.color + '">' + c.label + '</div>'
-        + priceBlock(idea.price);
+        + '<div class="price-slot" id="price-' + idx + '"><div class="price"><div class="mo" style="color:var(--muted-2)">Pricing\u2026</div></div></div>';
       A.appendChild(card);
     });
 
-    var apx = $("priceAppendix");
-    var srcs = out.priceSources || [];
-    var anyMarket = (out.advanced || []).some(function (x) { return x.price && x.price.basis === "market"; });
-    var html = "";
-    if (srcs.length) {
-      html += "<h4>Pricing references</h4><ol>";
-      srcs.forEach(function (sref) {
-        html += '<li value="' + Number(sref.n) + '"><a href="' + esc(sref.url) + '" target="_blank" rel="noopener">' + esc(sref.title) + '</a></li>';
-      });
-      html += "</ol>";
-    } else {
-      html += "<h4>Pricing references</h4>";
-    }
-    html += '<div class="disclaimer">All figures are indicative budgeting ranges, not quotes. Market-based ranges cite live comparables above. Scope-based ranges fall back to internal effort bands and carry no market citation. A firm price is set only after scoping the customer\'s actual environment.</div>';
-    apx.innerHTML = html;
-    apx.style.display = "block";
+    loadPricing(profile, (out.advanced || []).slice(0, 10));
 
     $("inputView").style.display = "none";
     $("resultsView").classList.add("show");
