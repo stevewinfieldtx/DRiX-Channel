@@ -10,8 +10,9 @@ function requireEnv() {
   return { key, model };
 }
 
-async function callOpenRouter(messages, { maxTokens = 1500, temperature = 0.4, plugins = null } = {}) {
+async function callOpenRouter(messages, { maxTokens = 1500, temperature = 0.4, plugins = null, online = false } = {}) {
   const { key, model } = requireEnv();
+  const useModel = online ? (model.includes(":online") ? model : model + ":online") : model;
   const res = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
@@ -20,7 +21,7 @@ async function callOpenRouter(messages, { maxTokens = 1500, temperature = 0.4, p
       "X-Title": "DRiX Channel Engine"
     },
     body: JSON.stringify(Object.assign(
-      { model, messages, max_tokens: maxTokens, temperature },
+      { model: useModel, messages, max_tokens: maxTokens, temperature },
       plugins ? { plugins } : {}
     ))
   });
@@ -31,6 +32,10 @@ async function callOpenRouter(messages, { maxTokens = 1500, temperature = 0.4, p
   const data = await res.json();
   const msg = data?.choices?.[0]?.message || {};
   return { content: msg.content || "", annotations: msg.annotations || [] };
+}
+
+function tryExtractJson(text) {
+  try { return extractJson(text); } catch (e) { return null; }
 }
 
 function extractJson(text) {
@@ -61,7 +66,11 @@ export async function identifyCompany({ siteText, url, city }) {
     [{ role: "system", content: sys }, { role: "user", content: user }],
     { maxTokens: 500, temperature: 0.2 }
   );
-  return extractJson(out.content);
+  const profile = tryExtractJson(out.content);
+  if (profile) return profile;
+  return { name: "", vertical: "", location: city || "unknown",
+           summary: "We could not read this site cleanly. Add the vertical and a line of context below.",
+           confidence: "low" };
 }
 
 // STEP 3 — indicative pricing per solution, market-searched with citations,
@@ -99,7 +108,7 @@ export async function priceSolutions({ solutions, profile }) {
   try {
     const out = await callOpenRouter(
       [{ role: "system", content: sys }, { role: "user", content: user }],
-      { maxTokens: 2600, temperature: 0.3, plugins: [{ id: "web", max_results: 5 }] }
+      { maxTokens: 2600, temperature: 0.3, online: true }
     );
     annotations = out.annotations || [];
     const clean = String(out.content).replace(/```json/gi, "").replace(/```/g, "").trim();
@@ -181,11 +190,15 @@ export async function analyzeCompany({ profile }) {
     profile.note ? `Extra context from partner: ${profile.note}` : ""
   ].filter(Boolean).join("\n");
 
-  const out = await callOpenRouter(
-    [{ role: "system", content: sys }, { role: "user", content: user }],
-    { maxTokens: 2200, temperature: 0.5 }
-  );
-  const parsed = extractJson(out.content);
+  const messages = [{ role: "system", content: sys }, { role: "user", content: user }];
+  let out = await callOpenRouter(messages, { maxTokens: 2200, temperature: 0.5 });
+  let parsed = tryExtractJson(out.content);
+  if (!parsed) {
+    // one retry before giving up — empty/garbled model output should not crash the run
+    out = await callOpenRouter(messages, { maxTokens: 2200, temperature: 0.5 });
+    parsed = tryExtractJson(out.content);
+  }
+  if (!parsed) throw new Error("The analysis came back empty. Run it again.");
   // Defensive: force the fixed basics names/order regardless of model drift.
   const verdicts = Array.isArray(parsed.basics) ? parsed.basics : [];
   parsed.basics = BASICS.map((name, i) => {
