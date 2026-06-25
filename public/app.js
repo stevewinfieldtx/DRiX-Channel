@@ -104,14 +104,41 @@
       .catch(function () { setLoading(false); $("analyzeBtn").disabled = false; showError("Network error during analysis."); });
   }
 
-  function quadrant(impact, effort) {
-    var hi = String(impact || "").toLowerCase() === "high";
-    var heavy = String(effort || "").toLowerCase() === "heavy";
-    // "low effort" = Quick or Moderate; "high effort" = Heavy
-    if (hi && !heavy) return { cls: "q-green", label: "Do it now" };
-    if (hi && heavy) return { cls: "q-yellow", label: "Worth the lift" };
-    if (!hi && !heavy) return { cls: "q-orange", label: "Cheap, marginal" };
-    return { cls: "q-red", label: "Avoid" };
+  // 3x3 matrix: impact (High/Medium/Low) x effort (Quick/Moderate/Heavy) = 9 cells, 9 colors.
+  var MATRIX = [
+    // effort:        Quick                            Moderate                         Heavy
+    [ {c:"#22E06B",l:"Do it now"},       {c:"#91E053",l:"Strong bet"},    {c:"#FFE03A",l:"Worth the lift"} ], // High impact
+    [ {c:"#91C04D",l:"Easy win"},        {c:"#C8AB47",l:"Consider"},      {c:"#FF9740",l:"Costly for mid"} ], // Medium impact
+    [ {c:"#FF9F2E",l:"Cheap, marginal"}, {c:"#FF763A",l:"Low priority"},  {c:"#FF4D45",l:"Avoid"} ]           // Low impact
+  ];
+  function cell(impact, effort) {
+    var imp = String(impact || "").toLowerCase();
+    var eff = String(effort || "").toLowerCase();
+    var i = imp === "high" ? 0 : (imp === "low" ? 2 : 1);
+    var e = eff === "quick" ? 0 : (eff === "heavy" ? 2 : 1);
+    return MATRIX[i][e];
+  }
+  function glow(hex, a) {
+    var h = hex.replace("#", "");
+    var r = parseInt(h.substr(0,2),16), g = parseInt(h.substr(2,2),16), b = parseInt(h.substr(4,2),16);
+    return "0 0 16px rgba(" + r + "," + g + "," + b + "," + a + ")";
+  }
+  function matrixLegend() {
+    var imps = ["High","Medium","Low"], effs = ["Quick","Moderate","Heavy"];
+    var cap = "font-family:var(--mono);font-size:9.5px;color:var(--muted-2);";
+    var html = '<div style="' + cap + 'letter-spacing:.14em;text-transform:uppercase;margin-bottom:9px;">Impact \u00d7 Effort \u00b7 the 3\u00d73</div>';
+    html += '<div style="display:inline-grid;grid-template-columns:auto repeat(3,34px);gap:4px;align-items:center;">';
+    html += '<span></span>';
+    html += effs.map(function (e) { return '<span style="' + cap + 'text-align:center;">' + e + '</span>'; }).join("");
+    for (var i = 0; i < 3; i++) {
+      html += '<span style="' + cap + 'padding-right:7px;text-align:right;">' + imps[i] + '</span>';
+      for (var e2 = 0; e2 < 3; e2++) {
+        var x = MATRIX[i][e2];
+        html += '<span title="' + imps[i] + ' impact / ' + effs[e2] + ' effort \u2014 ' + x.l + '" style="height:18px;border-radius:3px;background:' + x.c + ';box-shadow:0 0 8px ' + x.c + '66;"></span>';
+      }
+    }
+    html += '</div>';
+    return html;
   }
 
   function esc(s) { var d = document.createElement("div"); d.textContent = (s == null ? "" : String(s)); return d.innerHTML; }
@@ -154,11 +181,17 @@
     });
 
     var A = $("advanced"); A.innerHTML = "";
+    var oldLeg = document.getElementById("matrixLegend");
+    if (oldLeg) oldLeg.remove();
+    var leg = document.createElement("div"); leg.id = "matrixLegend"; leg.style.margin = "0 0 20px";
+    leg.innerHTML = matrixLegend();
+    A.parentNode.insertBefore(leg, A);
     (out.advanced || []).slice(0, 10).forEach(function (idea, idx) {
       var impact = (idea.impact || "").toLowerCase() === "high" ? "impact-high" : "";
       var ef = (idea.effort || "").toLowerCase(); var ec = ef === "quick" ? "effort-quick" : (ef === "heavy" ? "effort-heavy" : "");
-      var q = quadrant(idea.impact, idea.effort);
-      var card = document.createElement("article"); card.className = "card " + q.cls;
+      var c = cell(idea.impact, idea.effort);
+      var card = document.createElement("article"); card.className = "card";
+      card.style.borderColor = c.color; card.style.boxShadow = glow(c.color, 0.30);
       card.innerHTML = '<div class="rank">' + ("0" + (idx + 1)).slice(-2) + ' / 10</div>'
         + '<h4>' + esc(idea.title) + '</h4>'
         + '<p class="problem">' + esc(idea.problem) + '</p>'
@@ -168,7 +201,7 @@
         + '<span class="tag ' + impact + '">Impact · ' + esc(idea.impact || "—") + '</span>'
         + '<span class="tag ' + ec + '">Effort · ' + esc(idea.effort || "—") + '</span>'
         + '</div>'
-        + '<div class="quad">' + q.label + '</div>'
+        + '<div class="quad" style="color:' + c.color + '">' + c.label + '</div>'
         + priceBlock(idea.price);
       A.appendChild(card);
     });
