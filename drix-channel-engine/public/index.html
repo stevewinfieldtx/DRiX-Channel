@@ -112,11 +112,16 @@
   @media(max-width:720px){.grid{grid-template-columns:1fr;}}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 22px 18px;transition:border-color .18s ease,transform .18s ease;display:flex;flex-direction:column;}
   /* impact x effort quadrant — colored left edge of each Advanced card */
-  .card{border-left-width:4px;}
-  .card.q-green{border-left-color:#22E06B;}   /* high impact / low effort  — do it now */
-  .card.q-yellow{border-left-color:#FFE03A;}  /* high impact / high effort — worth the lift */
-  .card.q-orange{border-left-color:#FF9F2E;}  /* low impact / low effort   — cheap, marginal */
-  .card.q-red{border-left-color:#FF4D45;}     /* low impact / high effort  — avoid */
+  /* FULL bright outline by impact x effort quadrant */
+  .card{border-width:2px;}
+  .card.q-green{border-color:#22E06B;box-shadow:0 0 16px rgba(34,224,107,0.30);}   /* high impact / low effort  — do it now */
+  .card.q-yellow{border-color:#FFE03A;box-shadow:0 0 16px rgba(255,224,58,0.28);}  /* high impact / high effort — worth the lift */
+  .card.q-orange{border-color:#FF9F2E;box-shadow:0 0 16px rgba(255,159,46,0.28);}  /* low impact / low effort   — cheap, marginal */
+  .card.q-red{border-color:#FF4D45;box-shadow:0 0 16px rgba(255,77,69,0.28);}      /* low impact / high effort  — avoid */
+  .card.q-green:hover{border-color:#22E06B;box-shadow:0 0 24px rgba(34,224,107,0.5);}
+  .card.q-yellow:hover{border-color:#FFE03A;box-shadow:0 0 24px rgba(255,224,58,0.46);}
+  .card.q-orange:hover{border-color:#FF9F2E;box-shadow:0 0 24px rgba(255,159,46,0.46);}
+  .card.q-red:hover{border-color:#FF4D45;box-shadow:0 0 24px rgba(255,77,69,0.46);}
   .card .quad{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-top:14px;}
   .card.q-green .quad{color:#22E06B;}
   .card.q-yellow .quad{color:#FFE03A;}
@@ -174,7 +179,7 @@
       <div class="gridmark" aria-hidden="true"><span></span><span></span><span></span><span></span><span class="lit"></span><span></span><span></span><span></span><span></span></div>
       <div class="eyebrow">DRiX Channel <b>·</b> Engine</div>
     </div>
-    <div class="by">v0.8 · Railway</div>
+    <div class="by">v0.9 · Railway</div>
   </div>
 
   <!-- INPUT -->
