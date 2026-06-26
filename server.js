@@ -13,19 +13,7 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// Bypassed for local development so local firewalls don't kill the socket
-async function withHeartbeat(res, task) {
-  try {
-    const payload = await task();
-    res.json(payload);
-  } catch (err) {
-    console.error("Task error:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: err?.message || "Request failed." });
-    }
-  }
-}
-
+// ---- health ----
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
@@ -35,6 +23,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// ---- STEP 1: identify ----
 app.post("/api/identify", async (req, res) => {
   try {
     const url = normalizeUrl(req.body?.url);
@@ -88,18 +77,20 @@ app.post("/api/identify", async (req, res) => {
   }
 });
 
+// ---- STEP 2: analyze ----
 app.post("/api/analyze", async (req, res) => {
-  const url = normalizeUrl(req.body?.url);
-  const profile = req.body?.profile || {};
-  const partnerDomain = (req.body?.partnerDomain || "").trim();
-  if (!url) return res.status(400).json({ error: "Missing company URL." });
-  if (!profile.vertical && !profile.summary) {
-    return res.status(400).json({ error: "Confirm the company profile before running." });
-  }
-  const domain = domainOf(url);
+  try {
+    const url = normalizeUrl(req.body?.url);
+    const profile = req.body?.profile || {};
+    const partnerDomain = (req.body?.partnerDomain || "").trim();
+    if (!url) return res.status(400).json({ error: "Missing company URL." });
+    if (!profile.vertical && !profile.summary) {
+      return res.status(400).json({ error: "Confirm the company profile before running." });
+    }
+    const domain = domainOf(url);
 
-  await withHeartbeat(res, async () => {
     const result = await analyzeCompany({ profile });
+
     let saved = null;
     try {
       const company = await store.upsertCompany({ domain, ...profile });
@@ -118,26 +109,34 @@ app.post("/api/analyze", async (req, res) => {
     } catch (e) {
       console.warn("save run failed:", e.message);
     }
-    return { ...result, savedRunId: saved?.id || null };
-  });
+
+    return res.json({ ...result, savedRunId: saved?.id || null });
+  } catch (err) {
+    console.error("analyze error:", err);
+    return res.status(500).json({ error: err.message || "Analysis failed." });
+  }
 });
 
+// ---- STEP 3: price ----
 app.post("/api/price", async (req, res) => {
-  const profile = req.body?.profile || {};
-  const solutions = Array.isArray(req.body?.solutions) ? req.body.solutions : [];
-  if (!solutions.length) return res.status(400).json({ error: "No solutions to price." });
+  try {
+    const profile = req.body?.profile || {};
+    const solutions = Array.isArray(req.body?.solutions) ? req.body.solutions : [];
+    if (!solutions.length) return res.status(400).json({ error: "No solutions to price." });
 
-  await withHeartbeat(res, async () => {
-    const { priced, sources } = await priceSolutions({ solutions, profile });
-    return { priced, sources };
-  });
+    const payload = await priceSolutions({ solutions, profile });
+    return res.json(payload);
+  } catch (err) {
+    console.error("pricing route error:", err);
+    return res.status(500).json({ error: err.message || "Pricing compilation failed." });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
 
 store.init()
   .then(() => console.log("DB ready"))
-  .catch((e) => console.warn("DB init skipped/failed:", e.message))
+  .catch((e) => console.warn("DB init skipped/failed (app still serves):", e.message))
   .finally(() => {
     app.listen(PORT, () => console.log(`DRiX Channel Engine on :${PORT}`));
   });
