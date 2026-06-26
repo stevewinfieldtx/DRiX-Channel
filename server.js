@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import jwt from "jsonwebtoken";
+import { createClient } from "@supabase/supabase-js";
 
 import * as store from "./db/index.js";
 import { fetchSiteText, normalizeUrl, domainOf } from "./lib/siteReader.js";
@@ -13,7 +15,52 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---- health ----
+// Initialize Supabase Client
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+
+// ---- SUPABASE AUTH MIDDLEWARE ----
+// Decodes and verifies the incoming Supabase JWT token natively
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: "Access denied. Login required." });
+
+  // Natively verify using Supabase's project JWT secret
+  jwt.verify(token, process.env.SUPABASE_JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ error: "Session expired or invalid token." });
+    
+    // Supabase stores the unique user UUID inside the token 'sub' claim
+    req.user = { id: decoded.sub, email: decoded.email };
+    next();
+  });
+}
+
+// Optional Auth: Links tracking data to history if user is logged in, but allows guests
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return next();
+
+  jwt.verify(token, process.env.SUPABASE_JWT_SECRET, (err, decoded) => {
+    if (!err && decoded) {
+      req.user = { id: decoded.sub, email: decoded.email };
+    }
+    next();
+  });
+}
+
+// ---- PLATFORM HISTORY ROUTE ----
+app.get("/api/history", authenticateToken, async (req, res) => {
+  try {
+    const history = await store.getUserHistory(req.user.id);
+    return res.json({ history });
+  } catch (err) {
+    console.error("History endpoint error:", err);
+    res.status(500).json({ error: "Failed to compile user profile history." });
+  }
+});
+
+// ---- CORE ENGINE ROUTES ----
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
@@ -23,7 +70,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ---- STEP 1: identify ----
 app.post("/api/identify", async (req, res) => {
   try {
     const url = normalizeUrl(req.body?.url);
@@ -77,8 +123,7 @@ app.post("/api/identify", async (req, res) => {
   }
 });
 
-// ---- STEP 2: analyze ----
-app.post("/api/analyze", async (req, res) => {
+app.post("/api/analyze", optionalAuth, async (req, res) => {
   try {
     const url = normalizeUrl(req.body?.url);
     const profile = req.body?.profile || {};
@@ -99,9 +144,13 @@ app.post("/api/analyze", async (req, res) => {
         const partner = await store.findPartnerByDomain(domainOf(normalizeUrl(partnerDomain)) || partnerDomain);
         partnerId = partner?.id || null;
       }
+      
+      const userId = req.user ? req.user.id : null;
+
       saved = await store.saveRun({
         companyId: company.id,
         partnerId,
+        userId,
         profile,
         basics: result.basics,
         advanced: result.advanced
@@ -117,7 +166,6 @@ app.post("/api/analyze", async (req, res) => {
   }
 });
 
-// ---- STEP 3: price ----
 app.post("/api/price", async (req, res) => {
   try {
     const profile = req.body?.profile || {};
