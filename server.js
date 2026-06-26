@@ -1,10 +1,11 @@
+import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as store from "./db/index.js";
 import { fetchSiteText, normalizeUrl, domainOf } from "./lib/siteReader.js";
-import { identifyCompany, analyzeCompany } from "./lib/llm.js";
+import { identifyCompany, analyzeCompany, priceSolutions } from "./lib/llm.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -12,7 +13,19 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---- health ----
+// Bypassed for local development so local firewalls don't kill the socket
+async function withHeartbeat(res, task) {
+  try {
+    const payload = await task();
+    res.json(payload);
+  } catch (err) {
+    console.error("Task error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err?.message || "Request failed." });
+    }
+  }
+}
+
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
@@ -22,9 +35,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ---- STEP 1: identify ----
-// Reads the URL, checks the cache, and (on a miss) reads the site + asks the model
-// what the company does so the user can confirm before we run the analysis.
 app.post("/api/identify", async (req, res) => {
   try {
     const url = normalizeUrl(req.body?.url);
@@ -32,8 +42,6 @@ app.post("/api/identify", async (req, res) => {
     if (!url) return res.status(400).json({ error: "Enter a valid company URL." });
 
     const domain = domainOf(url);
-
-    // Cache / lookup first — do we already know this company?
     let cached = null;
     try {
       const company = await store.findCompanyByDomain(domain);
@@ -42,7 +50,6 @@ app.post("/api/identify", async (req, res) => {
         cached = { company, lastRun };
       }
     } catch (e) {
-      // DB not reachable shouldn't block identify; surface softly.
       console.warn("cache lookup failed:", e.message);
     }
 
@@ -61,7 +68,6 @@ app.post("/api/identify", async (req, res) => {
       });
     }
 
-    // Miss: read the site and identify.
     const site = await fetchSiteText(url);
     const profile = await identifyCompany({ siteText: site.text, url, city });
     if (!profile.location || profile.location === "unknown") {
@@ -82,22 +88,18 @@ app.post("/api/identify", async (req, res) => {
   }
 });
 
-// ---- STEP 2: analyze ----
-// Takes the confirmed profile, runs the three-tier analysis, saves the run.
 app.post("/api/analyze", async (req, res) => {
-  try {
-    const url = normalizeUrl(req.body?.url);
-    const profile = req.body?.profile || {};
-    const partnerDomain = (req.body?.partnerDomain || "").trim();
-    if (!url) return res.status(400).json({ error: "Missing company URL." });
-    if (!profile.vertical && !profile.summary) {
-      return res.status(400).json({ error: "Confirm the company profile before running." });
-    }
+  const url = normalizeUrl(req.body?.url);
+  const profile = req.body?.profile || {};
+  const partnerDomain = (req.body?.partnerDomain || "").trim();
+  if (!url) return res.status(400).json({ error: "Missing company URL." });
+  if (!profile.vertical && !profile.summary) {
+    return res.status(400).json({ error: "Confirm the company profile before running." });
+  }
+  const domain = domainOf(url);
 
-    const domain = domainOf(url);
+  await withHeartbeat(res, async () => {
     const result = await analyzeCompany({ profile });
-
-    // Persist through the seam (best-effort; a DB hiccup shouldn't lose the result).
     let saved = null;
     try {
       const company = await store.upsertCompany({ domain, ...profile });
@@ -116,19 +118,26 @@ app.post("/api/analyze", async (req, res) => {
     } catch (e) {
       console.warn("save run failed:", e.message);
     }
+    return { ...result, savedRunId: saved?.id || null };
+  });
+});
 
-    return res.json({ ...result, savedRunId: saved?.id || null });
-  } catch (err) {
-    console.error("analyze error:", err);
-    return res.status(500).json({ error: err.message || "Analysis failed." });
-  }
+app.post("/api/price", async (req, res) => {
+  const profile = req.body?.profile || {};
+  const solutions = Array.isArray(req.body?.solutions) ? req.body.solutions : [];
+  if (!solutions.length) return res.status(400).json({ error: "No solutions to price." });
+
+  await withHeartbeat(res, async () => {
+    const { priced, sources } = await priceSolutions({ solutions, profile });
+    return { priced, sources };
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 
 store.init()
   .then(() => console.log("DB ready"))
-  .catch((e) => console.warn("DB init skipped/failed (app still serves):", e.message))
+  .catch((e) => console.warn("DB init skipped/failed:", e.message))
   .finally(() => {
     app.listen(PORT, () => console.log(`DRiX Channel Engine on :${PORT}`));
   });
