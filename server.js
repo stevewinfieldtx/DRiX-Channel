@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 
 import * as store from "./db/index.js";
 import { fetchSiteText, normalizeUrl, domainOf } from "./lib/siteReader.js";
-import { identifyCompany, analyzeCompany, priceSolutions } from "./lib/llm.js";
+import { identifyCompany, analyzeCompany, generateSolutionDetail } from "./lib/llm.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -162,17 +162,17 @@ app.post("/api/analyze", optionalAuth, async (req, res) => {
   }
 });
 
-app.post("/api/price", async (req, res) => {
+app.post("/api/solution-detail", async (req, res) => {
   try {
     const profile = req.body?.profile || {};
-    const solutions = Array.isArray(req.body?.solutions) ? req.body.solutions : [];
-    if (!solutions.length) return res.status(400).json({ error: "No solutions to price." });
+    const solution = req.body?.solution || {};
+    if (!solution.title) return res.status(400).json({ error: "No solution selected." });
 
-    const payload = await priceSolutions({ solutions, profile });
-    return res.json(payload);
+    const detail = await generateSolutionDetail({ profile, solution });
+    return res.json(detail);
   } catch (err) {
-    console.error("pricing route error:", err);
-    return res.status(500).json({ error: err.message || "Pricing compilation failed." });
+    console.error("solution-detail error:", err);
+    return res.status(500).json({ error: err.message || "Deep dive failed." });
   }
 });
 

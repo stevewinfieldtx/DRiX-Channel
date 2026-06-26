@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var state = { url: "", city: "", profile: null, known: false };
+  var state = { url: "", city: "", profile: null, known: false, detailCache: {} };
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -75,7 +75,7 @@
 
   $("cancelBtn").addEventListener("click", function () {
     confirm.classList.remove("show"); clearError();
-    urlInput.value = ""; cityInput.value = ""; state = { url: "", city: "", profile: null, known: false };
+    urlInput.value = ""; cityInput.value = ""; state = { url: "", city: "", profile: null, known: false, detailCache: {} };
     identifyBtn.disabled = true; identifyHint.textContent = "Paste a URL to start.";
     urlInput.focus();
   });
@@ -116,25 +116,96 @@
 
   function esc(s) { var d = document.createElement("div"); d.textContent = (s == null ? "" : String(s)); return d.innerHTML; }
 
-  function money(n) {
-    n = Number(n) || 0;
-    if (n >= 1000) { var k = n / 1000; return "$" + (k % 1 === 0 ? k : k.toFixed(1)) + "K"; }
-    return "$" + n;
+  // ---- SOLUTION DEEP DIVE DRAWER ----
+  var drawer = $("drawer"), drawerInner = $("drawerInner"), drawerBackdrop = $("drawerBackdrop");
+
+  function openDrawer() {
+    drawer.classList.add("show");
+    drawerBackdrop.classList.add("show");
+    drawer.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
   }
-  function priceBlock(pr) {
-    if (!pr) return "";
-    var total = money(pr.low) + " – " + money(pr.high);
-    var mo = "$" + (Number(pr.monthlyLow) || 0).toLocaleString() + " – $" + (Number(pr.monthlyHigh) || 0).toLocaleString() + " /mo";
-    var isMarket = pr.basis === "market";
-    var refs = (pr.refs && pr.refs.length) ? '<span class="refs">[' + pr.refs.join(",") + ']</span>' : "";
-    var label = isMarket ? "Market-based" : "Scope-based";
-    var note = pr.note ? '<div class="pnote">' + esc(pr.note) + '</div>' : "";
-    return '<div class="price">'
-      + '<div class="amt">' + total + '</div>'
-      + '<div class="mo">' + mo + ' · setup = one month</div>'
-      + '<span class="basis ' + (isMarket ? "market" : "effort") + '">' + label + ' indicative' + refs + '</span>'
-      + note
-      + '</div>';
+  function closeDrawer() {
+    drawer.classList.remove("show");
+    drawerBackdrop.classList.remove("show");
+    drawer.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+  if (drawerBackdrop) drawerBackdrop.addEventListener("click", closeDrawer);
+  if ($("drawerClose")) $("drawerClose").addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDrawer(); });
+
+  function nineGrid() {
+    return '<div class="big-grid"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>';
+  }
+
+  function detailHead(idea) {
+    var tags = '';
+    if (idea.pain) tags += '<span class="tag pain">' + esc(idea.pain) + '</span>';
+    tags += '<span class="tag">Impact · ' + esc(idea.impact || "—") + '</span>';
+    tags += '<span class="tag">Effort · ' + esc(idea.effort || "—") + '</span>';
+    return '<div class="drawer-head"><div class="d-rank">Solution deep dive</div>'
+      + '<h3 class="d-title">' + esc(idea.title) + '</h3>'
+      + '<div class="tags">' + tags + '</div></div>';
+  }
+
+  function dsec(label, inner) {
+    return '<div class="dsec"><div class="dsec-label">' + label + '</div>' + inner + '</div>';
+  }
+
+  function renderDetailLoading(idea) {
+    drawerInner.innerHTML = detailHead(idea)
+      + '<div class="d-loading">' + nineGrid() + '<div class="load-text">Building the deep dive…</div></div>';
+  }
+
+  function renderDetailError(idx, idea, msg) {
+    drawerInner.innerHTML = detailHead(idea)
+      + '<div class="error show" style="margin-top:22px;"><div class="k">Engine note</div><p>' + esc(msg) + '</p></div>'
+      + '<button class="btn ghost" id="detailRetry" style="margin-top:16px;">Try again</button>';
+    var rb = $("detailRetry");
+    if (rb) rb.addEventListener("click", function () { delete state.detailCache[idx]; openDetail(idx, idea); });
+  }
+
+  function renderDetail(idea, d) {
+    var html = detailHead(idea);
+    if (d.pitch_line) {
+      html += '<div class="d-pitch"><span class="d-pitch-k">Open with</span><span class="d-pitch-t">' + esc(d.pitch_line) + '</span></div>';
+    }
+    if (d.how_it_works) html += dsec("How it works", '<p class="dtext">' + esc(d.how_it_works) + '</p>');
+    if (d.why_this_customer) html += dsec("Why this customer", '<p class="dtext">' + esc(d.why_this_customer) + '</p>');
+    if (d.integrations && d.integrations.length) {
+      var chips = d.integrations.map(function (x) { return '<span class="dchip">' + esc(x) + '</span>'; }).join("");
+      html += dsec("Wires into", '<div class="dchips">' + chips + '</div>');
+    }
+    if (d.discovery_questions && d.discovery_questions.length) {
+      var qs = d.discovery_questions.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join("");
+      html += dsec("Discovery questions", '<ol class="dlist">' + qs + '</ol>');
+    }
+    if (d.objections && d.objections.length) {
+      var obj = d.objections.map(function (o) {
+        return '<div class="dobj"><div class="dobj-q">' + esc(o.objection) + '</div><div class="dobj-a">' + esc(o.response) + '</div></div>';
+      }).join("");
+      html += dsec("Objections, handled", obj);
+    }
+    if (d.success_metric) html += dsec("What success looks like", '<p class="dtext dmetric">' + esc(d.success_metric) + '</p>');
+    drawerInner.innerHTML = html;
+  }
+
+  function openDetail(idx, idea) {
+    openDrawer();
+    if (state.detailCache[idx]) { renderDetail(idea, state.detailCache[idx]); return; }
+    renderDetailLoading(idea);
+    fetch("/api/solution-detail", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: state.resultProfile || state.profile || {}, solution: idea })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) { renderDetailError(idx, idea, res.j.error || "Could not load the deep dive."); return; }
+        state.detailCache[idx] = res.j;
+        renderDetail(idea, res.j);
+      })
+      .catch(function () { renderDetailError(idx, idea, "Network error loading the deep dive."); });
   }
 
   function renderResults(profile, out) {
@@ -169,26 +240,12 @@
         + '<span class="tag ' + ec + '">Effort · ' + esc(idea.effort || "—") + '</span>'
         + '</div>'
         + '<div class="quad">' + q.label + '</div>'
-        + priceBlock(idea.price);
+        + '<div class="card-open">Open deep dive <span class="arrow">▸</span></div>';
+      card.addEventListener("click", function () { openDetail(idx, idea); });
       A.appendChild(card);
     });
 
-    var apx = $("priceAppendix");
-    var srcs = out.priceSources || [];
-    var anyMarket = (out.advanced || []).some(function (x) { return x.price && x.price.basis === "market"; });
-    var html = "";
-    if (srcs.length) {
-      html += "<h4>Pricing references</h4><ol>";
-      srcs.forEach(function (sref) {
-        html += '<li value="' + Number(sref.n) + '"><a href="' + esc(sref.url) + '" target="_blank" rel="noopener">' + esc(sref.title) + '</a></li>';
-      });
-      html += "</ol>";
-    } else {
-      html += "<h4>Pricing references</h4>";
-    }
-    html += '<div class="disclaimer">All figures are indicative budgeting ranges, not quotes. Market-based ranges cite live comparables above. Scope-based ranges fall back to internal effort bands and carry no market citation. A firm price is set only after scoping the customer\'s actual environment.</div>';
-    apx.innerHTML = html;
-    apx.style.display = "block";
+    state.resultProfile = profile;
 
     $("inputView").style.display = "none";
     $("resultsView").classList.add("show");
@@ -198,8 +255,8 @@
   $("restartBtn").addEventListener("click", function () {
     $("resultsView").classList.remove("show");
     $("inputView").style.display = "block";
-    confirm.classList.remove("show"); clearError();
-    urlInput.value = ""; cityInput.value = ""; state = { url: "", city: "", profile: null, known: false };
+    confirm.classList.remove("show"); clearError(); closeDrawer();
+    urlInput.value = ""; cityInput.value = ""; state = { url: "", city: "", profile: null, known: false, detailCache: {} };
     identifyBtn.disabled = true; identifyHint.textContent = "Paste a URL to start.";
     window.scrollTo({ top: 0, behavior: "smooth" });
   });

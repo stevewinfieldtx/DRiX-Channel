@@ -168,6 +168,39 @@
   .error .k{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);}
   .error p{color:var(--muted);font-size:14.5px;line-height:1.5;margin:10px 0 0;}
 
+  /* card open affordance */
+  .card-open{margin-top:16px;padding-top:14px;border-top:1px solid var(--line-soft);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim);transition:color .16s ease;}
+  .card:hover .card-open{color:var(--cyan);}
+  .card-open .arrow{display:inline-block;transition:transform .16s ease;}
+  .card:hover .card-open .arrow{transform:translateX(3px);}
+
+  /* solution deep dive drawer */
+  .drawer-backdrop{position:fixed;inset:0;background:rgba(4,8,11,0.62);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:40;}
+  .drawer-backdrop.show{opacity:1;pointer-events:auto;}
+  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,94vw);background:var(--bg-2);border-left:1px solid var(--line);box-shadow:-30px 0 80px rgba(0,0,0,0.5);transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:50;overflow-y:auto;overscroll-behavior:contain;}
+  .drawer.show{transform:translateX(0);}
+  .drawer-close{position:absolute;top:18px;right:18px;z-index:2;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:14px;cursor:pointer;transition:border-color .16s ease,color .16s ease;}
+  .drawer-close:hover{border-color:var(--cyan-dim);color:var(--text);}
+  .drawer-inner{padding:34px 32px 64px;}
+  .drawer-head{border-bottom:1px solid var(--line);padding-bottom:20px;padding-right:40px;}
+  .drawer-head .d-rank{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);}
+  .drawer-head .d-title{font-family:var(--serif);font-weight:400;font-size:30px;line-height:1.06;margin:12px 0 14px;}
+  .d-pitch{margin-top:22px;border:1px solid var(--cyan-dim);background:linear-gradient(180deg,rgba(46,230,246,0.06),rgba(46,230,246,0));border-radius:12px;padding:16px 18px;}
+  .d-pitch-k{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);margin-bottom:7px;}
+  .d-pitch-t{font-family:var(--serif);font-size:19px;line-height:1.35;color:var(--text);}
+  .dsec{margin-top:26px;}
+  .dsec-label{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2);margin-bottom:11px;}
+  .dtext{color:var(--text);font-size:15px;line-height:1.62;margin:0;}
+  .dmetric{color:var(--green);}
+  .dchips{display:flex;flex-wrap:wrap;gap:8px;}
+  .dchip{font-family:var(--mono);font-size:11.5px;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:7px 11px;}
+  .dlist{margin:0;padding-left:20px;}
+  .dlist li{color:var(--text);font-size:14.5px;line-height:1.5;margin-bottom:9px;}
+  .dobj{border:1px solid var(--line);border-radius:11px;padding:15px 16px;margin-bottom:12px;background:var(--surface);}
+  .dobj-q{font-weight:600;font-size:14.5px;color:var(--amber);line-height:1.4;margin-bottom:8px;}
+  .dobj-a{color:var(--text);font-size:14px;line-height:1.55;}
+  .d-loading{display:flex;align-items:center;gap:18px;margin-top:34px;}
+
   footer{margin-top:64px;border-top:1px solid var(--line-soft);padding-top:18px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted-2);text-transform:uppercase;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
   @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
@@ -247,7 +280,6 @@
       <div class="layer-head"><span class="lnum">02</span><h3>Advanced Solutions</h3></div>
       <p class="layer-sub">Ten builds scoped to them · ranked by impact</p>
       <div class="grid" id="advanced"></div>
-      <div class="appendix" id="priceAppendix" style="display:none;"></div>
     </div>
 
     <div class="layer">
@@ -267,6 +299,12 @@
     <span>Read · Qualify · Build · Embed</span>
   </footer>
 </div>
+<!-- SOLUTION DEEP DIVE DRAWER -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <button class="drawer-close" id="drawerClose" aria-label="Close deep dive">✕</button>
+  <div class="drawer-inner" id="drawerInner"></div>
+</aside>
 <script src="/app.js"></script>
 </body>
 </html>
